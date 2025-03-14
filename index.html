@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONAD Token Claim</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+            background-color: #6c63ff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+        }
+        button {
+            background-color: #6c63ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #5a52d5;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .wallet-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .wallet-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .wallet-option:hover {
+            background-color: #f0f0f0;
+        }
+        .wallet-option img {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">MONAD</div>
+        <h1>MONAD Token Claim</h1>
+        <p>Connect your wallet and claim your MONAD tokens</p>
+        <div id="walletSelection">
+            <button id="connectWallet">Connect Wallet</button>
+            <div id="walletOptions" class="wallet-options" style="display: none;">
+                <div class="wallet-option" id="metamaskOption">
+                    <span>MetaMask</span>
+                </div>
+                <div class="wallet-option" id="okxOption">
+                    <span>OKX Wallet</span>
+                </div>
+                <div class="wallet-option" id="otherOption">
+                    <span>Other Ethereum Wallet</span>
+                </div>
+            </div>
+        </div>
+        <button id="claimTokens" disabled>Claim Tokens</button>
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        const CONTRACT_ADDRESS = "0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D";
+        const CONTRACT_ABI = [
+            {
+                "inputs": [],
+                "name": "claimTokens",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        let provider;
+        let signer;
+        let contract;
+        let userAddress;
+
+        const connectWalletBtn = document.getElementById('connectWallet');
+        const walletOptionsDiv = document.getElementById('walletOptions');
+        const metamaskOption = document.getElementById('metamaskOption');
+        const okxOption = document.getElementById('okxOption');
+        const otherOption = document.getElementById('otherOption');
+        const claimTokensBtn = document.getElementById('claimTokens');
+        const statusDiv = document.getElementById('status');
+
+        connectWalletBtn.addEventListener('click', () => {
+            walletOptionsDiv.style.display = walletOptionsDiv.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        metamaskOption.addEventListener('click', () => {
+            connectWithProvider('metamask');
+        });
+
+        okxOption.addEventListener('click', () => {
+            connectWithProvider('okx');
+        });
+
+        otherOption.addEventListener('click', () => {
+            connectWithProvider('other');
+        });
+
+        async function connectWithProvider(walletType) {
+            try {
+                statusDiv.style.display = 'none';
+                walletOptionsDiv.style.display = 'none';
+                
+                let ethereum;
+                
+                // Detect which provider to use
+                if (walletType === 'metamask' && window.ethereum) {
+                    ethereum = window.ethereum;
+                } else if (walletType === 'okx' && window.okxwallet) {
+                    ethereum = window.okxwallet;
+                } else if (walletType === 'other') {
+                    // Try to detect any available provider
+                    ethereum = window.ethereum || window.okxwallet || window.coinbaseWallet || window.trustwallet;
+                } else {
+                    if (walletType === 'metamask') {
+                        showStatus("MetaMask not detected. Please install MetaMask or try another wallet.", "error");
+                    } else if (walletType === 'okx') {
+                        showStatus("OKX Wallet not detected. Please install OKX Wallet or try another wallet.", "error");
+                    } else {
+                        showStatus("No compatible wallet detected. Please install a Web3 wallet like MetaMask or OKX.", "error");
+                    }
+                    return;
+                }
+
+                if (!ethereum) {
+                    showStatus("No Web3 wallet detected. Please install MetaMask, OKX Wallet, or another Ethereum wallet.", "error");
+                    return;
+                }
+
+                // Request account access
+                const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Create a provider using ethers.js
+                provider = new ethers.BrowserProvider(ethereum);
+                
+                // Get the signer (wallet)
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                // Check if user is connected to Monad testnet
+                const network = await provider.getNetwork();
+                const chainId = network.chainId;
+                
+                // Monad testnet chainId = 2424 (0x978)
+                if (chainId !== 2424n) {
+                    showStatus("Please switch to the Monad testnet (Chain ID: 2424)", "error");
+                    try {
+                        await ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x978' }],
+                        });
+                    } catch (switchError) {
+                        // If the chain hasn't been added to MetaMask
+                        if (switchError.code === 4902) {
+                            try {
+                                await ethereum.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: '0x978',
+                                        chainName: 'Monad Testnet',
+                                        nativeCurrency: {
+                                            name: 'MONAD',
+                                            symbol: 'MONAD',
+                                            decimals: 18
+                                        },
+                                        rpcUrls: ['https://testnet-rpc.monad.xyz/'],
+                                        blockExplorerUrls: ['https://testnet.monadexplorer.com/']
+                                    }],
+                                });
+                            } catch (addError) {
+                                showStatus("Failed to add Monad network to your wallet. Please add it manually.", "error");
+                                return;
+                            }
+                        } else {
+                            showStatus("Failed to switch to Monad network. Please switch manually.", "error");
+                            return;
+                        }
+                    }
+                    
+                    // Refresh provider and signer after network switch
+                    provider = new ethers.BrowserProvider(ethereum);
+                    signer = await provider.getSigner();
+                }
+                
+                // Create contract instance
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                
+                const walletName = walletType === 'metamask' ? 'MetaMask' : 
+                                  walletType === 'okx' ? 'OKX Wallet' : 'Wallet';
+                
+                connectWalletBtn.innerText = `Connected: ${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
+                claimTokensBtn.disabled = false;
+                
+                showStatus(`${walletName} connected successfully!`, "success");
+            } catch (error) {
+                console.error("Error connecting wallet:", error);
+                showStatus("Failed to connect wallet: " + error.message, "error");
+            }
+        }
+
+        async function claimTokens() {
+            try {
+                statusDiv.style.display = 'none';
+                
+                if (!contract) {
+                    showStatus("Please connect your wallet first!", "error");
+                    return;
+                }
+                
+                claimTokensBtn.disabled = true;
+                claimTokensBtn.innerText = "Claiming...";
+                
+                showStatus("Claiming tokens... Please confirm the transaction in your wallet", "info");
+                
+                // Call the claimTokens function
+                const tx = await contract.claimTokens();
+                
+                showStatus("Transaction submitted! Waiting for confirmation...", "info");
+                
+                // Wait for transaction to be mined
+                await tx.wait();
+                
+                showStatus("Tokens claimed successfully!", "success");
+                claimTokensBtn.innerText = "Tokens Claimed";
+            } catch (error) {
+                console.error("Error claiming tokens:", error);
+                showStatus("Failed to claim tokens: " + error.message, "error");
+                claimTokensBtn.disabled = false;
+                claimTokensBtn.innerText = "Claim Tokens";
+            }
+        }
+
+        function showStatus(message, type) {
+            statusDiv.className = "status " + type;
+            statusDiv.innerText = message;
+            statusDiv.style.display = 'block';
+        }
+
+        claimTokensBtn.addEventListener('click', claimTokens);
+    </script>
+</body>
+</html>
