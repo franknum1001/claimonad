@@ -138,7 +138,7 @@
             }
         ];
         const MONAD_TESTNET_RPC = "https://testnet-rpc.monad.xyz/";
-        const MONAD_CHAIN_ID = "0x279f"; // 2424 in hex
+        const MONAD_CHAIN_ID = "10143"; // 10143 in hex
 
         let provider;
         let signer;
@@ -214,9 +214,9 @@
                 const network = await provider.getNetwork();
                 const chainId = network.chainId;
                 
-                // Monad testnet chainId = 2424 (0x978)
-                if (chainId !== 2424n) {
-                    showStatus("Please switch to the Monad testnet (Chain ID: 2424)", "info");
+                // Monad testnet chainId = 10143 (0x978)101
+                if (chainId !== 10143) {
+                    showStatus("Please switch to the Monad testnet (Chain ID: 10143)", "info");
                     
                     // First try to switch to the network
                     try {
@@ -267,7 +267,7 @@
                         
                         // Double-check that we're on the right network
                         const updatedNetwork = await provider.getNetwork();
-                        if (updatedNetwork.chainId !== 2424n) {
+                        if (updatedNetwork.chainId !== 10143) {
                             showStatus("Failed to switch to Monad network. Please switch manually and try again.", "error");
                             return;
                         }
