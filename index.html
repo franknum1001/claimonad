@@ -1,170 +1,68 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>认领 Monad 测试网 MON 代币</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        button:disabled {
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-        #status {
-            margin: 20px 0;
-            font-size: 18px;
-        }
-        #message {
-            color: #555;
-            margin-top: 10px;
-        }
-        footer {
-            margin-top: 20px;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <h1>认领 Monad 测试网 MON 代币</h1>
-    <button id="connect-wallet">连接 MetaMask 钱包</button>
-    <div id="status"></div>
-    <button id="claim-tokens" disabled>认领代币</button>
-    <div id="message">
-        注意：您需要一些测试网 MON 来支付 Gas 费。请访问 <a href="https://testnet.monad.xyz/faucet" target="_blank">Monad 测试网水龙头</a> 获取。
-    </div>
-    <footer>
-        浏览器: <a href="https://testnet.monadexplorer.com" target="_blank">Monad Explorer</a>
-    </footer>
+const contractAddress = '0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D';
+const abi = [
+    // 这里填入你的合约 ABI
+    // 例如：
+    {
+        "constant": false,
+        "inputs": [],
+        "name": "claimTokens",
+        "outputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [{"name": "user", "type": "address"}],
+        "name": "isWhitelisted",
+        "outputs": [{"name": "", "type": "bool"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    }
+];
 
-    <script>
-        // 常量定义
-        const claimContractAddress = "0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D";
-        const claimContractABI = [
-            {
-                "constant": true,
-                "inputs": [{"name": "account", "type": "address"}],
-                "name": "isWhitelisted",
-                "outputs": [{"name": "", "type": "bool"}],
-                "type": "function"
-            },
-            {
-                "constant": false,
-                "inputs": [],
-                "name": "claim",
-                "outputs": [],
-                "type": "function"
-            }
-        ];
-        const monadTestnetChainId = "0x4d2"; // 假设的 Monad 测试网 Chain ID，请替换为实际值
-        const monadTestnet = {
-            chainId: "0x4d2",
-            chainName: "Monad Testnet",
-            nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
-            rpcUrls: ["https://testnet.monad.xyz/rpc"], // 请替换为实际 RPC URL
-            blockExplorerUrls: ["https://testnet.monadexplorer.com"]
-        };
+let web3;
+let contract;
+let userAddress;
 
-        // DOM 元素
-        const connectButton = document.getElementById("connect-wallet");
-        const claimButton = document.getElementById("claim-tokens");
-        const statusDiv = document.getElementById("status");
+document.getElementById('connectWallet').addEventListener('click', connectWallet);
+document.getElementById('claimTokens').addEventListener('click', claimTokens);
 
-        // 连接钱包
-        async function connectWallet() {
-            if (!window.ethereum) {
-                alert("请安装 MetaMask 钱包！");
-                return;
-            }
-
-            try {
-                await window.ethereum.request({ method: "eth_requestAccounts" });
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const signer = provider.getSigner();
-                const userAddress = await signer.getAddress();
-                statusDiv.innerHTML = `已连接地址: ${userAddress}`;
-
-                // 检查网络
-                const chainId = await window.ethereum.request({ method: "eth_chainId" });
-                if (chainId !== monadTestnetChainId) {
-                    await switchNetwork();
-                } else {
-                    checkWhitelist(userAddress, signer);
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `连接失败: ${error.message}`;
-            }
+async function connectWallet() {
+    if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const accounts = await web3.eth.getAccounts();
+            userAddress = accounts[0];
+            document.getElementById('status').innerText = `Connected: ${userAddress}`;
+            checkWhitelist(userAddress);
+        } catch (error) {
+            console.error("User denied account access or error occurred", error);
         }
+    } else {
+        console.error("MetaMask not detected");
+    }
+}
 
-        // 切换或添加网络
-        async function switchNetwork() {
-            try {
-                await window.ethereum.request({
-                    method: "wallet_switchEthereumChain",
-                    params: [{ chainId: monadTestnetChainId }],
-                });
-            } catch (switchError) {
-                if (switchError.code === 4902) { // 网络未添加
-                    await window.ethereum.request({
-                        method: "wallet_addEthereumChain",
-                        params: [monadTestnet],
-                    });
-                } else {
-                    statusDiv.innerHTML = `请切换到 Monad 测试网: ${switchError.message}`;
-                    return;
-                }
-            }
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
-            const userAddress = await signer.getAddress();
-            checkWhitelist(userAddress, signer);
-        }
+async function checkWhitelist(address) {
+    contract = new web3.eth.Contract(abi, contractAddress);
+    const isWhitelisted = await contract.methods.isWhitelisted(address).call();
+    if (isWhitelisted) {
+        document.getElementById('claimTokens').disabled = false;
+        document.getElementById('status').innerText = 'You are whitelisted! Click to claim tokens.';
+    } else {
+        document.getElementById('status').innerText = 'You are not whitelisted.';
+    }
+}
 
-        // 检查白名单
-        async function checkWhitelist(userAddress, signer) {
-            const claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
-            try {
-                const isWhitelisted = await claimContract.isWhitelisted(userAddress);
-                if (isWhitelisted) {
-                    statusDiv.innerHTML = `您的地址: ${userAddress} 在白名单中！`;
-                    claimButton.disabled = false;
-                } else {
-                    statusDiv.innerHTML = `您的地址: ${userAddress} 不在白名单中。`;
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `白名单检查失败: ${error.message}`;
-            }
-        }
-
-        // 认领代币
-        async function claimTokens() {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
-            const claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
-            try {
-                statusDiv.innerHTML = "正在认领代币...";
-                const tx = await claimContract.claim();
-                await tx.wait();
-                statusDiv.innerHTML = `代币已认领！交易详情: <a href="https://testnet.monadexplorer.com/tx/${tx.hash}" target="_blank">查看</a>`;
-            } catch (error) {
-                statusDiv.innerHTML = `认领失败: ${error.message}`;
-            }
-        }
-
-        // 事件监听
-        connectButton.addEventListener("click", connectWallet);
-        claimButton.addEventListener("click", claimTokens);
-    </script>
-</body>
-</html>
+async function claimTokens() {
+    try {
+        await contract.methods.claimTokens().send({ from: userAddress });
+        document.getElementById('status').innerText = 'Tokens claimed successfully!';
+    } catch (error) {
+        console.error("Error claiming tokens", error);
+        document.getElementById('status').innerText = 'Error claiming tokens.';
+    }
+}
