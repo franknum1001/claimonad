@@ -94,6 +94,15 @@
       animation: spin 1s ease-in-out infinite;
       margin-right: 10px;
     }
+    .explorer-link {
+      display: inline-block;
+      margin-top: 15px;
+      color: #3498db;
+      text-decoration: none;
+    }
+    .explorer-link:hover {
+      text-decoration: underline;
+    }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
@@ -117,6 +126,9 @@
         <h3>Check Whitelist Status</h3>
         <button id="checkWhitelist">Check If Whitelisted</button>
         <div id="whitelistStatus" class="status info" style="display: none;"></div>
+        <a href="https://testnet.monadexplorer.com/address/0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D?tab=Contract" target="_blank" class="explorer-link">
+          Check whitelist status directly on Monad Explorer (see "6. isWhitelisted")
+        </a>
       </div>
       
       <div class="container-details">
