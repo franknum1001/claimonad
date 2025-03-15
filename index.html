@@ -15,6 +15,7 @@
     <h1>Monad Token Claim</h1>
 
     <button id="connectWalletBtn">连接 MetaMask 钱包</button>
+    <button id="connectOkxWalletBtn">连接 OKX 钱包</button>
     <div id="walletAddress"></div>
 
     <button id="checkWhitelistBtn" disabled>检查是否在白名单</button>
@@ -33,8 +34,10 @@
         let signer;
         let claimContract;
         let userAddress;
+        let currentWallet = null; // 'metamask' 或 'okx'
 
         const connectWalletBtn = document.getElementById('connectWalletBtn');
+        const connectOkxWalletBtn = document.getElementById('connectOkxWalletBtn');
         const walletAddressDiv = document.getElementById('walletAddress');
         const checkWhitelistBtn = document.getElementById('checkWhitelistBtn');
         const whitelistStatusDiv = document.getElementById('whitelistStatus');
@@ -49,16 +52,42 @@
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                     signer = provider.getSigner();
                     userAddress = await signer.getAddress();
-                    walletAddressDiv.innerText = `连接的钱包地址: ${userAddress}`;
+                    walletAddressDiv.innerText = `连接的钱包: MetaMask - ${userAddress}`;
                     claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
                     checkWhitelistBtn.disabled = false;
-                    statusDiv.innerText = "钱包已连接。";
+                    statusDiv.innerText = "MetaMask 钱包已连接。";
+                    currentWallet = 'metamask';
                 } catch (error) {
-                    console.error("连接钱包失败:", error);
-                    statusDiv.innerText = "连接钱包失败。请检查 MetaMask 是否已安装并解锁。";
+                    console.error("连接 MetaMask 钱包失败:", error);
+                    statusDiv.innerText = "连接 MetaMask 钱包失败。请检查 MetaMask 是否已安装并解锁。";
+                    currentWallet = null;
                 }
             } else {
                 statusDiv.innerText = "请安装 MetaMask!";
+                currentWallet = null;
+            }
+        });
+
+        connectOkxWalletBtn.addEventListener('click', async () => {
+            if (window.okxwallet) {
+                try {
+                    await window.okxwallet.request({ method: 'eth_requestAccounts' });
+                    provider = new ethers.providers.Web3Provider(window.okxwallet);
+                    signer = provider.getSigner();
+                    userAddress = await signer.getAddress();
+                    walletAddressDiv.innerText = `连接的钱包: OKX Wallet - ${userAddress}`;
+                    claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
+                    checkWhitelistBtn.disabled = false;
+                    statusDiv.innerText = "OKX 钱包已连接。";
+                    currentWallet = 'okx';
+                } catch (error) {
+                    console.error("连接 OKX 钱包失败:", error);
+                    statusDiv.innerText = "连接 OKX 钱包失败。请检查 OKX Wallet 是否已安装并解锁。";
+                    currentWallet = null;
+                }
+            } else {
+                statusDiv.innerText = "请安装 OKX Wallet!";
+                currentWallet = null;
             }
         });
 
