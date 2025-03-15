@@ -3,135 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monad Token Claim</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <title>Monad Token Claim Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.0.1/web3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        body { font-family: sans-serif; }
-        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
-        #status { margin-top: 20px; font-weight: bold; }
+        :root {
+            --primary-color: #6964FF;
+            --secondary-color: #4a47b1;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            background: rgb(105, 100, 255);
+            background: linear-gradient(135deg, rgba(105, 100, 255, 1) 0%, rgba(74, 71, 177, 1) 100%);
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(105, 100, 255, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: var(--text-color);
+            word-break: break-all;
+        }
+
+        .result-message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .btn-loading .loading {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .network-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .testnet {
+            background-color: #fdf0d9;
+            color: #8a5d17;
+        }
+
+        .address-display {
+            background-color: #f0f0f0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+
+        .wallet-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
-    <h1>Monad Token Claim</h1>
+    <div class="container">
+        <header>
+            <h1>MON Token Claim Portal</h1>
+            <p class="subtitle">Claim your MON tokens on Monad Network</p>
+            <div class="network-badge testnet">Monad Testnet</div>
+        </header>
 
-    <button id="connectWalletBtn">连接 MetaMask 钱包</button>
-    <button id="connectOkxWalletBtn">连接 OKX 钱包</button>
-    <div id="walletAddress"></div>
+        <div class="card">
+            <h2>Connect Wallet</h2>
+            <p>Connect your wallet to claim MON tokens.</p>
+            <div class="wallet-section">
+                <button id="connectMetamask">Connect MetaMask</button>
+                <button id="connectOKX">Connect OKX Wallet</button>
+            </div>
+            <div id="walletInfo" style="margin-top: 15px; display: none;">
+                <div class="info-row">
+                    <span class="info-label">Connected Account:</span>
+                    <span class="info-value" id="connectedAccount"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Network:</span>
+                    <span class="info-value" id="connectedNetwork"></span>
+                </div>
+            </div>
+            <div id="walletMessage" class="result-message" style="display: none;"></div>
+        </div>
 
-    <button id="checkWhitelistBtn" disabled>检查是否在白名单</button>
-    <div id="whitelistStatus"></div>
+        <div class="card">
+            <h2>Token Claim Status</h2>
+            <div id="loadingStatus" style="display: none;">
+                <p>Loading contract information...</p>
+            </div>
+            <div id="claimInfo" style="display: none;">
+                <div class="info-row">
+                    <span class="info-label">Claim Amount:</span>
+                    <span class="info-value" id="claimAmount">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Claim Interval:</span>
+                    <span class="info-value" id="claimInterval">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Whitelist Status:</span>
+                    <span class="info-value" id="whitelistStatus">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Claim Time:</span>
+                    <span class="info-value" id="lastClaimTime">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Can Claim Now:</span>
+                    <span class="info-value" id="canClaimStatus">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Contract Balance:</span>
+                    <span class="info-value" id="contractBalance">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Claimed:</span>
+                    <span class="info-value" id="totalClaimed">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Token Name:</span>
+                    <span class="info-value" id="tokenName">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Token Symbol:</span>
+                    <span class="info-value" id="tokenSymbol">-</span>
+                </div>
+            </div>
+            <button id="refreshStatus" style="display: none;">Refresh Status</button>
+        </div>
 
-    <button id="claimTokenBtn" disabled>领取 Token</button>
-    <div id="claimStatus"></div>
+        <div class="card">
+            <h2>Claim Tokens</h2>
+            <p>Click the button below to claim your MON tokens if you are eligible.</p>
+            <button id="claimTokens" disabled>Claim Tokens</button>
+            <div id="claimMessage" class="result-message" style="display: none;"></div>
+        </div>
 
-    <div id="status"></div>
+        <footer>
+            <p>© 2025 MON Token Claim Portal | Monad Network</p>
+        </footer>
+    </div>
 
     <script>
-        const claimContractAddress = "0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D";
-        const claimContractABI = [{"inputs":,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newAmount","type":"uint256"}],"name":"ClaimAmountUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newInterval","type":"uint256"}],"name":"ClaimIntervalUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TokensClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"bool","name":"status","type":"bool"}],"name":"WhitelistUpdated","type":"event"},{"inputs":[{"internalType":"address","name":"_users","type":"address"}],"name":"addBatchToWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"addToWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"canClaim","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimInterval","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimTokens","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":,"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"isWhitelisted","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"removeFromWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newAmount","type":"uint256"}],"name":"setClaimAmount","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newInterval","type":"uint256"}],"name":"setClaimInterval","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":,"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"totalClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"withdraw","outputs":,"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]
+        // Contract address and ABI
+        const contractAddress = '0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D';
+        const contractABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newAmount","type":"uint256"}],"name":"ClaimAmountUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newInterval","type":"uint256"}],"name":"ClaimIntervalUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TokensClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"bool","name":"status","type":"bool"}],"name":"WhitelistUpdated","type":"event"},{"inputs":[{"internalType":"address[]","name":"_users","type":"address[]"}],"name":"addBatchToWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"addToWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"canClaim","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimInterval","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"isWhitelisted","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"removeFromWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newAmount","type":"uint256"}],"name":"setClaimAmount","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newInterval","type":"uint256"}],"name":"setClaimInterval","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}];
 
-        let provider;
-        let signer;
-        let claimContract;
-        let userAddress;
-        let currentWallet = null; // 'metamask' 或 'okx'
+        // Global variables
+        let web3;
+        let contract;
+        let walletType = null;
+        let currentAccount = null;
+        let provider = null;
 
-        const connectWalletBtn = document.getElementById('connectWalletBtn');
-        const connectOkxWalletBtn = document.getElementById('connectOkxWalletBtn');
-        const walletAddressDiv = document.getElementById('walletAddress');
-        const checkWhitelistBtn = document.getElementById('checkWhitelistBtn');
-        const whitelistStatusDiv = document.getElementById('whitelistStatus');
-        const claimTokenBtn = document.getElementById('claimTokenBtn');
-        const claimStatusDiv = document.getElementById('claimStatus');
-        const statusDiv = document.getElementById('status');
-
-        connectWalletBtn.addEventListener('click', async () => {
-            if (window.ethereum) {
-                try {
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    signer = provider.getSigner();
-                    userAddress = await signer.getAddress();
-                    walletAddressDiv.innerText = `连接的钱包: MetaMask - ${userAddress}`;
-                    claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
-                    checkWhitelistBtn.disabled = false;
-                    statusDiv.innerText = "MetaMask 钱包已连接。";
-                    currentWallet = 'metamask';
-                } catch (error) {
-                    console.error("连接 MetaMask 钱包失败:", error);
-                    statusDiv.innerText = "连接 MetaMask 钱包失败。请检查 MetaMask 是否已安装并解锁。";
-                    currentWallet = null;
-                }
-            } else {
-                statusDiv.innerText = "请安装 MetaMask!";
-                currentWallet = null;
-            }
-        });
-
-        connectOkxWalletBtn.addEventListener('click', async () => {
-            if (window.okxwallet) {
-                try {
-                    await window.okxwallet.request({ method: 'eth_requestAccounts' });
-                    provider = new ethers.providers.Web3Provider(window.okxwallet);
-                    signer = provider.getSigner();
-                    userAddress = await signer.getAddress();
-                    walletAddressDiv.innerText = `连接的钱包: OKX Wallet - ${userAddress}`;
-                    claimContract = new ethers.Contract(claimContractAddress, claimContractABI, signer);
-                    checkWhitelistBtn.disabled = false;
-                    statusDiv.innerText = "OKX 钱包已连接。";
-                    currentWallet = 'okx';
-                } catch (error) {
-                    console.error("连接 OKX 钱包失败:", error);
-                    statusDiv.innerText = "连接 OKX 钱包失败。请检查 OKX Wallet 是否已安装并解锁。";
-                    currentWallet = null;
-                }
-            } else {
-                statusDiv.innerText = "请安装 OKX Wallet!";
-                currentWallet = null;
-            }
-        });
-
-        checkWhitelistBtn.addEventListener('click', async () => {
-            if (!claimContract) {
-                statusDiv.innerText = "请先连接钱包。";
-                return;
-            }
-            try {
-                const isWhitelisted = await claimContract.isWhitelisted(userAddress);
-                whitelistStatusDiv.innerText = `是否在白名单: ${isWhitelisted ? '是' : '否'}`;
-                if (isWhitelisted) {
-                    claimTokenBtn.disabled = false;
-                    statusDiv.innerText = "您的地址在白名单中，可以领取 Token。";
-                } else {
-                    claimTokenBtn.disabled = true;
-                    statusDiv.innerText = "您的地址不在白名单中。";
-                }
-            } catch (error) {
-                console.error("检查白名单失败:", error);
-                whitelistStatusDiv.innerText = "检查白名单失败。";
-                statusDiv.innerText = "检查白名单失败，请查看控制台错误信息。";
-            }
-        });
-
-        claimTokenBtn.addEventListener('click', async () => {
-            if (!claimContract) {
-                statusDiv.innerText = "请先连接钱包。";
-                return;
-            }
-            try {
-                statusDiv.innerText = "正在发送领取交易...";
-                claimStatusDiv.innerText = "交易正在进行中...";
-                const tx = await claimContract.claimTokens();
-                statusDiv.innerText = `领取交易已发送，等待确认... (交易哈希: ${tx.hash})`;
-                const receipt = await tx.wait();
-                statusDiv.innerText = "领取成功!";
-                claimStatusDiv.innerText = `交易已确认 (区块号: ${receipt.blockNumber})`;
-            } catch (error) {
-                console.error("领取 Token 失败:", error);
-                statusDiv.innerText = "领取 Token 失败。请查看控制台错误信息。";
-                claimStatusDiv.innerText = "领取失败。";
-            }
-        });
-    </script>
-</body>
-</html>
+        // Monad Network Configuration
+        const MONAD_NETWORK_CONFIG = {
+            chainId: '0x2797',  // 10143 in hex
+            chainName: 'Monad Testnet',
+            nativeCurrency: {
+                name: 'MON',
+                symbol: 'MON',
+                decimals: 18
+            },
+            rpcUrls: ['https://testnet-rpc.monad.xyz/'],
+            block
