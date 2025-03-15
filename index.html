@@ -27,12 +27,7 @@
 
     <script>
         const claimContractAddress = "0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D";
-        // **请在此处替换为你的 Claim 合约的完整 ABI**
-        const claimContractABI = [
-            // { "inputs":, "name": "claim", "outputs":, "stateMutability": "nonpayable", "type": "function" },
-            // { "inputs": [ { "internalType": "address", "name": "account", "type": "address" } ], "name": "isWhitelisted", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }
-            // ... 完整的 ABI ...
-        ];
+        const claimContractABI = [{"inputs":,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newAmount","type":"uint256"}],"name":"ClaimAmountUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newInterval","type":"uint256"}],"name":"ClaimIntervalUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TokensClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"bool","name":"status","type":"bool"}],"name":"WhitelistUpdated","type":"event"},{"inputs":[{"internalType":"address","name":"_users","type":"address"}],"name":"addBatchToWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"addToWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"canClaim","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimInterval","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"claimTokens","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":,"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"isWhitelisted","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"removeFromWhitelist","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newAmount","type":"uint256"}],"name":"setClaimAmount","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newInterval","type":"uint256"}],"name":"setClaimInterval","outputs":,"stateMutability":"nonpayable","type":"function"},{"inputs":,"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"totalClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":,"name":"withdraw","outputs":,"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]
 
         let provider;
         let signer;
@@ -73,7 +68,6 @@
                 return;
             }
             try {
-                // **请确保你的合约 ABI 中包含名为 'isWhitelisted' 的函数**
                 const isWhitelisted = await claimContract.isWhitelisted(userAddress);
                 whitelistStatusDiv.innerText = `是否在白名单: ${isWhitelisted ? '是' : '否'}`;
                 if (isWhitelisted) {
@@ -98,8 +92,7 @@
             try {
                 statusDiv.innerText = "正在发送领取交易...";
                 claimStatusDiv.innerText = "交易正在进行中...";
-                // **请确保你的合约 ABI 中包含名为 'claim' 的函数**
-                const tx = await claimContract.claim();
+                const tx = await claimContract.claimTokens();
                 statusDiv.innerText = `领取交易已发送，等待确认... (交易哈希: ${tx.hash})`;
                 const receipt = await tx.wait();
                 statusDiv.innerText = "领取成功!";
