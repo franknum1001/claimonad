@@ -104,7 +104,7 @@
     <h1>Monad Token Claim Portal</h1>
     
     <div class="network-indicator" id="networkStatus">
-      Please connect to Monad Testnet
+      Please connect your wallet
     </div>
     
     <button id="connectWallet">Connect MetaMask Wallet</button>
@@ -162,12 +162,8 @@
           // Setup ethers provider
           provider = new ethers.providers.Web3Provider(window.ethereum);
           
-          // Check network
-          updateNetworkStatus();
-          
           // Listen for network changes
           window.ethereum.on('chainChanged', () => {
-            updateNetworkStatus();
             window.location.reload();
           });
           
@@ -187,30 +183,6 @@
         }
       } else {
         showStatus('claimStatus', 'MetaMask is not installed. Please install MetaMask to use this application.', 'error');
-      }
-    }
-
-    // Update network status indicator
-    async function updateNetworkStatus() {
-      const networkStatus = document.getElementById('networkStatus');
-      
-      try {
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        
-        if (chainId === MONAD_TESTNET_CHAIN_ID) {
-          networkStatus.textContent = '✓ Connected to Monad Testnet';
-          networkStatus.style.color = '#2ecc71';
-          
-          // Initialize contract when on correct network
-          initContract();
-        } else {
-          networkStatus.textContent = '❌ Please switch to Monad Testnet';
-          networkStatus.style.color = '#e74c3c';
-          contract = null;
-        }
-      } catch (error) {
-        networkStatus.textContent = '❌ Error checking network';
-        networkStatus.style.color = '#e74c3c';
       }
     }
 
@@ -234,45 +206,14 @@
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           userAccount = accounts[0];
           
-          // Check if we're on the Monad Testnet
-          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          // Initialize the contract
+          initContract();
           
-          if (chainId !== MONAD_TESTNET_CHAIN_ID) {
-            // Prompt user to switch to Monad Testnet
-            try {
-              await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: MONAD_TESTNET_CHAIN_ID }]
-              });
-            } catch (switchError) {
-              // This error code indicates that the chain has not been added to MetaMask
-              if (switchError.code === 4902) {
-                try {
-                  await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                      chainId: MONAD_TESTNET_CHAIN_ID,
-                      chainName: 'Monad Testnet',
-                      nativeCurrency: {
-                        name: 'MONAD',
-                        symbol: 'MONAD',
-                        decimals: 18
-                      },
-                      rpcUrls: ['https://testnet-rpc.monad.xyz/'],
-                      blockExplorerUrls: ['https://testnet.monadexplorer.com/']
-                    }]
-                  });
-                } catch (addError) {
-                  throw new Error("Could not add Monad network to MetaMask");
-                }
-              } else {
-                throw switchError;
-              }
-            }
-          }
-          
-          updateNetworkStatus();
+          // Update UI
           updateUI();
+          
+          document.getElementById('networkStatus').textContent = 'Wallet Connected';
+          document.getElementById('networkStatus').style.color = '#2ecc71';
           
         } catch (error) {
           console.error("Error connecting wallet:", error);
