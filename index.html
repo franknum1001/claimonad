@@ -246,7 +246,7 @@
       document.getElementById('claimTokens').disabled = true;
     }
 
-    // Check if address is whitelisted
+    // Updated Check if address is whitelisted
     async function checkWhitelist() {
       if (!contract || !userAccount) {
         showStatus('whitelistStatus', 'Please connect your wallet first', 'error');
@@ -257,7 +257,22 @@
       document.getElementById('whitelistStatus').style.display = 'none';
       
       try {
-        const isWhitelisted = await contract.isWhitelisted(userAccount);
+        // Ensure the contract is properly initialized
+        if (!contract.provider) {
+          initContract();
+        }
+        
+        // Normalize the address format
+        const formattedAddress = ethers.utils.getAddress(userAccount);
+        console.log("Checking whitelist status for address:", formattedAddress);
+        
+        // Explicitly verify we're on the right network
+        const network = await provider.getNetwork();
+        console.log("Current network:", network.chainId, "Expected:", parseInt(MONAD_TESTNET_CHAIN_ID, 16));
+        
+        // Call the isWhitelisted function with the user's address
+        const isWhitelisted = await contract.isWhitelisted(formattedAddress);
+        console.log("Whitelist response:", isWhitelisted);
         
         if (isWhitelisted) {
           showStatus('whitelistStatus', '✓ Your address is whitelisted! You can claim tokens.', 'success');
@@ -268,7 +283,36 @@
         }
       } catch (error) {
         console.error("Error checking whitelist:", error);
-        showStatus('whitelistStatus', `Error checking whitelist status: ${error.message}`, 'error');
+        
+        // Provide more detailed error information
+        let errorMessage = 'Error checking whitelist status';
+        if (error.message.includes('call revert exception')) {
+          errorMessage = 'Contract call failed. Please verify you are connected to the Monad testnet.';
+          
+          // Try alternative approach with lower-level call
+          try {
+            console.log("Attempting alternative call method...");
+            const data = contract.interface.encodeFunctionData("isWhitelisted", [userAccount]);
+            const result = await provider.call({
+              to: CONTRACT_ADDRESS,
+              data: data
+            });
+            console.log("Raw result:", result);
+            const decoded = contract.interface.decodeFunctionResult("isWhitelisted", result);
+            console.log("Decoded result:", decoded);
+            
+            if (decoded && decoded[0] === true) {
+              showStatus('whitelistStatus', '✓ Your address is whitelisted! You can claim tokens.', 'success');
+              document.getElementById('claimTokens').disabled = false;
+              document.getElementById('checkWhitelist').textContent = 'Check If Whitelisted';
+              return;
+            }
+          } catch (altError) {
+            console.error("Alternative call also failed:", altError);
+          }
+        }
+        
+        showStatus('whitelistStatus', `${errorMessage}: ${error.message}`, 'error');
         document.getElementById('claimTokens').disabled = true;
       }
       
