@@ -153,6 +153,7 @@
     let provider = null;
     let signer = null;
     let contract = null;
+    let web3 = null;
 
     // Initialize Web3 connection
     async function init() {
@@ -161,6 +162,9 @@
         try {
           // Setup ethers provider
           provider = new ethers.providers.Web3Provider(window.ethereum);
+          
+          // Initialize web3.js as an alternative method
+          web3 = new Web3(window.ethereum);
           
           // Listen for network changes
           window.ethereum.on('chainChanged', () => {
@@ -246,9 +250,9 @@
       document.getElementById('claimTokens').disabled = true;
     }
 
-    // Updated Check if address is whitelisted
+    // Completely rewritten function to check whitelist status using web3.js
     async function checkWhitelist() {
-      if (!contract || !userAccount) {
+      if (!userAccount) {
         showStatus('whitelistStatus', 'Please connect your wallet first', 'error');
         return;
       }
@@ -257,24 +261,17 @@
       document.getElementById('whitelistStatus').style.display = 'none';
       
       try {
-        // Ensure the contract is properly initialized
-        if (!contract.provider) {
-          initContract();
-        }
+        // Create a new contract instance using web3.js as an alternative approach
+        const web3Contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
         
-        // Normalize the address format
-        const formattedAddress = ethers.utils.getAddress(userAccount);
-        console.log("Checking whitelist status for address:", formattedAddress);
+        console.log("Checking whitelist status for address:", userAccount);
         
-        // Explicitly verify we're on the right network
-        const network = await provider.getNetwork();
-        console.log("Current network:", network.chainId, "Expected:", parseInt(MONAD_TESTNET_CHAIN_ID, 16));
+        // Call the isWhitelisted function using web3.js call method
+        const result = await web3Contract.methods.isWhitelisted(userAccount).call();
+        console.log("Whitelist check result:", result);
         
-        // Call the isWhitelisted function with the user's address
-        const isWhitelisted = await contract.isWhitelisted(formattedAddress);
-        console.log("Whitelist response:", isWhitelisted);
-        
-        if (isWhitelisted) {
+        // Process the result
+        if (result === true) {
           showStatus('whitelistStatus', '✓ Your address is whitelisted! You can claim tokens.', 'success');
           document.getElementById('claimTokens').disabled = false;
         } else {
@@ -282,38 +279,49 @@
           document.getElementById('claimTokens').disabled = true;
         }
       } catch (error) {
-        console.error("Error checking whitelist:", error);
+        console.error("Error checking whitelist status:", error);
         
-        // Provide more detailed error information
-        let errorMessage = 'Error checking whitelist status';
-        if (error.message.includes('call revert exception')) {
-          errorMessage = 'Contract call failed. Please verify you are connected to the Monad testnet.';
+        // If web3.js approach fails, try a direct JSON-RPC call as last resort
+        try {
+          console.log("Attempting direct JSON-RPC call...");
           
-          // Try alternative approach with lower-level call
-          try {
-            console.log("Attempting alternative call method...");
-            const data = contract.interface.encodeFunctionData("isWhitelisted", [userAccount]);
-            const result = await provider.call({
-              to: CONTRACT_ADDRESS,
-              data: data
-            });
-            console.log("Raw result:", result);
-            const decoded = contract.interface.decodeFunctionResult("isWhitelisted", result);
-            console.log("Decoded result:", decoded);
-            
-            if (decoded && decoded[0] === true) {
-              showStatus('whitelistStatus', '✓ Your address is whitelisted! You can claim tokens.', 'success');
-              document.getElementById('claimTokens').disabled = false;
-              document.getElementById('checkWhitelist').textContent = 'Check If Whitelisted';
-              return;
-            }
-          } catch (altError) {
-            console.error("Alternative call also failed:", altError);
+          // Function signature for isWhitelisted(address)
+          const functionSignature = web3.utils.sha3("isWhitelisted(address)").substr(0, 10);
+          
+          // Pad the address to 32 bytes (remove 0x prefix first, then pad)
+          const paddedAddress = web3.utils.padLeft(userAccount, 64).replace("0x", "");
+          
+          // Construct the call data: function selector + encoded parameter
+          const callData = functionSignature + paddedAddress;
+          
+          const params = [{
+            to: CONTRACT_ADDRESS,
+            data: callData
+          }, "latest"];
+          
+          // Make direct JSON-RPC eth_call
+          const response = await window.ethereum.request({
+            method: 'eth_call',
+            params: params
+          });
+          
+          console.log("Direct JSON-RPC response:", response);
+          
+          // Decode the boolean result (true is represented as 0x01, false as 0x00 in the 32 byte response)
+          const isWhitelisted = response && response !== "0x" && parseInt(response) !== 0;
+          
+          if (isWhitelisted) {
+            showStatus('whitelistStatus', '✓ Your address is whitelisted! You can claim tokens.', 'success');
+            document.getElementById('claimTokens').disabled = false;
+          } else {
+            showStatus('whitelistStatus', '❌ Your address is not whitelisted.', 'error');
+            document.getElementById('claimTokens').disabled = true;
           }
+        } catch (rpcError) {
+          console.error("Direct JSON-RPC call also failed:", rpcError);
+          showStatus('whitelistStatus', `Error checking whitelist status: ${error.message}`, 'error');
+          document.getElementById('claimTokens').disabled = true;
         }
-        
-        showStatus('whitelistStatus', `${errorMessage}: ${error.message}`, 'error');
-        document.getElementById('claimTokens').disabled = true;
       }
       
       document.getElementById('checkWhitelist').textContent = 'Check If Whitelisted';
