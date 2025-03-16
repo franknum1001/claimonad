@@ -83,7 +83,7 @@
         }
 
         button:hover {
-            background-color: var(--secondary-color);
+            background-color: var (--secondary-color);
         }
 
         button:disabled {
@@ -152,9 +152,7 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
         .btn-loading {
@@ -395,6 +393,4 @@
                 document.getElementById('whitelistStatus').innerText = isWhitelisted ? 'Yes' : 'No';
                 document.getElementById('lastClaimTime').innerText = new Date(lastClaimTime * 1000).toLocaleString();
                 document.getElementById('canClaimStatus').innerText = canClaim ? 'Yes' : 'No';
-                document.getElementById('contractBalance').innerText = web3.utils.fromWei(contractBalance, 'ether') + ' ' + tokenSymbol;
-                document.getElementById('totalClaimed').innerText = web3.utils.fromWei(totalClaimed, 'ether') + ' ' + tokenSymbol;
-                document.getElementById
+                document.getElementById('contractBalance').innerText = web3.utils.fromWei(contract
