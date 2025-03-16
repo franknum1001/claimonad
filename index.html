@@ -315,4 +315,85 @@
                 decimals: 18
             },
             rpcUrls: ['https://testnet-rpc.monad.xyz/'],
-            block
+            blockExplorerUrls: ['https://testnet-explorer.monad.xyz/']
+        };
+
+        // Function to connect to MetaMask
+        async function connectMetaMask() {
+            if (window.ethereum) {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    web3 = new Web3(window.ethereum);
+                    provider = window.ethereum;
+                    walletType = 'MetaMask';
+                    setupContract();
+                } catch (error) {
+                    showError('Failed to connect MetaMask');
+                }
+            } else {
+                showError('MetaMask is not installed');
+            }
+        }
+
+        // Function to connect to OKX Wallet
+        async function connectOKX() {
+            if (window.okxwallet) {
+                try {
+                    await window.okxwallet.enable();
+                    web3 = new Web3(window.okxwallet);
+                    provider = window.okxwallet;
+                    walletType = 'OKX Wallet';
+                    setupContract();
+                } catch (error) {
+                    showError('Failed to connect OKX Wallet');
+                }
+            } else {
+                showError('OKX Wallet is not installed');
+            }
+        }
+
+        // Function to setup the contract and get wallet info
+        async function setupContract() {
+            const accounts = await web3.eth.getAccounts();
+            currentAccount = accounts[0];
+            contract = new web3.eth.Contract(contractABI, contractAddress);
+            displayWalletInfo();
+            getClaimStatus();
+        }
+
+        // Function to display wallet info
+        function displayWalletInfo() {
+            document.getElementById('connectedAccount').innerText = currentAccount;
+            document.getElementById('connectedNetwork').innerText = MONAD_NETWORK_CONFIG.chainName;
+            document.getElementById('walletInfo').style.display = 'block';
+        }
+
+        // Function to show error messages
+        function showError(message) {
+            const walletMessage = document.getElementById('walletMessage');
+            walletMessage.innerText = message;
+            walletMessage.className = 'result-message error';
+            walletMessage.style.display = 'block';
+        }
+
+        // Function to get claim status
+        async function getClaimStatus() {
+            try {
+                document.getElementById('loadingStatus').style.display = 'block';
+                const claimAmount = await contract.methods.claimAmount().call();
+                const claimInterval = await contract.methods.claimInterval().call();
+                const isWhitelisted = await contract.methods.isWhitelisted(currentAccount).call();
+                const lastClaimTime = await contract.methods.lastClaimTime(currentAccount).call();
+                const canClaim = await contract.methods.canClaim(currentAccount).call();
+                const contractBalance = await contract.methods.getBalance().call();
+                const totalClaimed = await contract.methods.totalClaimed().call();
+                const tokenName = await contract.methods.name().call();
+                const tokenSymbol = await contract.methods.symbol().call();
+
+                document.getElementById('claimAmount').innerText = web3.utils.fromWei(claimAmount, 'ether') + ' ' + tokenSymbol;
+                document.getElementById('claimInterval').innerText = claimInterval + ' seconds';
+                document.getElementById('whitelistStatus').innerText = isWhitelisted ? 'Yes' : 'No';
+                document.getElementById('lastClaimTime').innerText = new Date(lastClaimTime * 1000).toLocaleString();
+                document.getElementById('canClaimStatus').innerText = canClaim ? 'Yes' : 'No';
+                document.getElementById('contractBalance').innerText = web3.utils.fromWei(contractBalance, 'ether') + ' ' + tokenSymbol;
+                document.getElement
