@@ -1,111 +1,159 @@
-import asyncio
-from web3 import Web3
-from datetime import datetime, timedelta
-import requests
-import json
-from collections import defaultdict
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ink账户交互分析</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .input-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 300px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .loading {
+            font-style: italic;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ink区块链账户交互分析</h1>
+    <div class="input-container">
+        <input type="text" id="accountAddress" placeholder="请输入Ink账户地址 (0x...)">
+        <button onclick="analyzeAccount()">分析</button>
+    </div>
+    <div id="result"></div>
 
-# 配置Ink区块链的RPC端点和API密钥
-INK_RPC_URL = "https://rpc.inkonchain.com"  # 替换为实际的Ink RPC端点
-INK_EXPLORER_API = "https://api.inkonchain.com/api"  # 替换为实际的Ink区块链浏览器API
-API_KEY = "YOUR_INK_EXPLORER_API_KEY"  # 替换为你的API密钥
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script>
+        // 配置Ink区块链的RPC端点和API
+        const INK_RPC_URL = "https://rpc.inkonchain.com"; // 替换为实际的Ink RPC端点
+        const INK_EXPLORER_API = "https://api.inkonchain.com/api"; // 替换为实际的Ink区块链浏览器API
+        const API_KEY = "YOUR_INK_EXPLORER_API_KEY"; // 替换为你的API密钥
 
-# 初始化Web3
-web3 = Web3(Web3.HTTPProvider(INK_RPC_URL))
+        // 初始化Web3
+        const web3 = new Web3(INK_RPC_URL);
 
-# 检查连接
-def check_connection():
-    if not web3.is_connected():
-        raise Exception("无法连接到Ink区块链节点")
-    print("已连接到Ink区块链")
+        // 检查连接
+        async function checkConnection() {
+            try {
+                const isConnected = await web3.eth.net.isListening();
+                if (!isConnected) throw new Error("无法连接到Ink区块链节点");
+                console.log("已连接到Ink区块链");
+            } catch (error) {
+                throw new Error("连接错误: " + error.message);
+            }
+        }
 
-# 获取账户的交易数据
-def get_account_transactions(account_address, start_block=0, end_block='latest'):
-    params = {
-        'module': 'account',
-        'action': 'txlist',
-        'address': account_address,
-        'startblock': start_block,
-        'endblock': end_block,
-        'sort': 'asc',
-        'apikey': API_KEY
-    }
-    response = requests.get(INK_EXPLORER_API, params=params)
-    data = response.json()
-    
-    if data['status'] == '1':
-        return data['result']
-    else:
-        raise Exception(f"API错误: {data['message']}")
+        // 获取账户的交易数据
+        async function getAccountTransactions(accountAddress, startBlock = 0, endBlock = "latest") {
+            const url = `${INK_EXPLORER_API}?module=account&action=txlist&address=${accountAddress}&startblock=${startBlock}&endblock=${endBlock}&sort=asc&apikey=${API_KEY}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.status === "1") {
+                return data.result;
+            } else {
+                throw new Error(`API错误: ${data.message}`);
+            }
+        }
 
-# 分析交易数据
-def analyze_transactions(transactions):
-    interaction_count = 0
-    interaction_days = set()
-    interaction_weeks = set()
-    interaction_months = set()
-    total_amount = 0
-    unique_contracts = set()
+        // 分析交易数据
+        async function analyzeTransactions(transactions) {
+            let interactionCount = 0;
+            const interactionDays = new Set();
+            const interactionWeeks = new Set();
+            const interactionMonths = new Set();
+            let totalAmount = BigInt(0);
+            const uniqueContracts = new Set();
 
-    for tx in transactions:
-        # 增加交互次数
-        interaction_count += 1
-        
-        # 获取交易时间
-        timestamp = int(tx['timeStamp'])
-        tx_date = datetime.fromtimestamp(timestamp)
-        
-        # 记录交互的日期、周、月
-        interaction_days.add(tx_date.date())
-        interaction_weeks.add((tx_date.year, tx_date.isocalendar()[1]))
-        interaction_months.add((tx_date.year, tx_date.month))
-        
-        # 累加交易金额（以wei为单位）
-        total_amount += int(tx['value'])
-        
-        # 记录不同的合约地址
-        if tx.get('to') and web3.eth.get_code(tx['to']).hex() != '0x':
-            unique_contracts.add(tx['to'])
-    
-    return {
-        'interaction_count': interaction_count,
-        'interaction_days': len(interaction_days),
-        'interaction_weeks': len(interaction_weeks),
-        'interaction_months': len(interaction_months),
-        'total_amount_ether': web3.from_wei(total_amount, 'ether'),
-        'unique_contracts': len(unique_contracts)
-    }
+            for (const tx of transactions) {
+                // 增加交互次数
+                interactionCount++;
+                
+                // 获取交易时间
+                const timestamp = parseInt(tx.timeStamp);
+                const txDate = new Date(timestamp * 1000);
+                
+                // 记录交互的日期、周、月
+                interactionDays.add(txDate.toISOString().split('T')[0]);
+                const week = getWeekNumber(txDate);
+                interactionWeeks.add(`${txDate.getFullYear()}-${week}`);
+                interactionMonths.add(`${txDate.getFullYear()}-${txDate.getMonth() + 1}`);
+                
+                // 累加交易金额（以wei为单位）
+                totalAmount += BigInt(tx.value);
+                
+                // 记录不同的合约地址
+                if (tx.to) {
+                    const code = await web3.eth.getCode(tx.to);
+                    if (code !== "0x") {
+                        uniqueContracts.add(tx.to);
+                    }
+                }
+            }
 
-async def main():
-    try:
-        # 检查连接
-        check_connection()
-        
-        # 要查询的账户地址
-        account_address = input("请输入Ink账户地址: ")
-        
-        # 验证地址格式
-        if not web3.is_address(account_address):
-            raise Exception("无效的账户地址")
-        
-        # 获取交易数据
-        print("正在获取交易数据...")
-        transactions = get_account_transactions(account_address)
-        
-        # 分析交易数据
-        result = analyze_transactions(transactions)
-        
-        # 输出结果
-        print("\n账户分析结果:")
-        print(f"交互次数: {result['interaction_count']}")
-        print(f"交互天数: {result['interaction_days']}")
-        print(f"交互周数: {result['interaction_weeks']}")
-        print(f"交互月数: {result['interaction_months']}")
-        print(f"总交易金额: {result['total_amount_ether']} ETH")
-        print(f"不同合约数: {result['unique_contracts']}")
-        
-    except Exception as e:
-        print(f"错误: {str(e)}")
+            // 将wei转换为ETH
+            const totalAmountEther = web3.utils.fromWei(totalAmount.toString(), 'ether');
 
-if __name__ == "__main__":
-    asyncio.run(main())
+            return {
+                interactionCount,
+                interactionDays: interactionDays.size,
+                interactionWeeks: interactionWeeks.size,
+                interactionMonths: interactionMonths.size,
+                totalAmountEther,
+                uniqueContracts: uniqueContracts.size
+            };
+        }
+
+        // 获取ISO周数
+        function getWeekNumber(date) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+            const yearStart = new Date(d.getFullYear(), 0, 1);
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        // 主分析函数
+        async function analyzeAccount() {
+            const resultDiv = document.getElementById("result");
+            const accountAddress = document.getElementById("accountAddress").value.trim();
+            result
