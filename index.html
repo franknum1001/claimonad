@@ -1,396 +1,111 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monad Token Claim Portal</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.0.1/web3.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-    <style>
-        :root {
-            --primary-color: #800080; /* Purple color */
-            --secondary-color: #4B0082; /* Darker purple color */
-            --background-color: #f8f9fa;
-            --card-background: #ffffff;
-            --text-color: #333333;
-            --border-color: #e0e0e0;
-        }
+import asyncio
+from web3 import Web3
+from datetime import datetime, timedelta
+import requests
+import json
+from collections import defaultdict
 
-        body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: var(--background-color);
-            margin: 0;
-            padding: 0;
-        }
+# 配置Ink区块链的RPC端点和API密钥
+INK_RPC_URL = "https://rpc.inkonchain.com"  # 替换为实际的Ink RPC端点
+INK_EXPLORER_API = "https://api.inkonchain.com/api"  # 替换为实际的Ink区块链浏览器API
+API_KEY = "YOUR_INK_EXPLORER_API_KEY"  # 替换为你的API密钥
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+# 初始化Web3
+web3 = Web3(Web3.HTTPProvider(INK_RPC_URL))
 
-        header {
-            text-align: center;
-            padding: 30px 0;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(105, 100, 255, 0.2);
-        }
+# 检查连接
+def check_connection():
+    if not web3.is_connected():
+        raise Exception("无法连接到Ink区块链节点")
+    print("已连接到Ink区块链")
 
-        h1 {
-            font-size: 2.5rem;
-            margin: 0;
-        }
+# 获取账户的交易数据
+def get_account_transactions(account_address, start_block=0, end_block='latest'):
+    params = {
+        'module': 'account',
+        'action': 'txlist',
+        'address': account_address,
+        'startblock': start_block,
+        'endblock': end_block,
+        'sort': 'asc',
+        'apikey': API_KEY
+    }
+    response = requests.get(INK_EXPLORER_API, params=params)
+    data = response.json()
+    
+    if data['status'] == '1':
+        return data['result']
+    else:
+        raise Exception(f"API错误: {data['message']}")
 
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-        }
+# 分析交易数据
+def analyze_transactions(transactions):
+    interaction_count = 0
+    interaction_days = set()
+    interaction_weeks = set()
+    interaction_months = set()
+    total_amount = 0
+    unique_contracts = set()
 
-        .card {
-            background-color: var(--card-background);
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--border-color);
-        }
+    for tx in transactions:
+        # 增加交互次数
+        interaction_count += 1
+        
+        # 获取交易时间
+        timestamp = int(tx['timeStamp'])
+        tx_date = datetime.fromtimestamp(timestamp)
+        
+        # 记录交互的日期、周、月
+        interaction_days.add(tx_date.date())
+        interaction_weeks.add((tx_date.year, tx_date.isocalendar()[1]))
+        interaction_months.add((tx_date.year, tx_date.month))
+        
+        # 累加交易金额（以wei为单位）
+        total_amount += int(tx['value'])
+        
+        # 记录不同的合约地址
+        if tx.get('to') and web3.eth.get_code(tx['to']).hex() != '0x':
+            unique_contracts.add(tx['to'])
+    
+    return {
+        'interaction_count': interaction_count,
+        'interaction_days': len(interaction_days),
+        'interaction_weeks': len(interaction_weeks),
+        'interaction_months': len(interaction_months),
+        'total_amount_ether': web3.from_wei(total_amount, 'ether'),
+        'unique_contracts': len(unique_contracts)
+    }
 
-        h2 {
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-        }
+async def main():
+    try:
+        # 检查连接
+        check_connection()
+        
+        # 要查询的账户地址
+        account_address = input("请输入Ink账户地址: ")
+        
+        # 验证地址格式
+        if not web3.is_address(account_address):
+            raise Exception("无效的账户地址")
+        
+        # 获取交易数据
+        print("正在获取交易数据...")
+        transactions = get_account_transactions(account_address)
+        
+        # 分析交易数据
+        result = analyze_transactions(transactions)
+        
+        # 输出结果
+        print("\n账户分析结果:")
+        print(f"交互次数: {result['interaction_count']}")
+        print(f"交互天数: {result['interaction_days']}")
+        print(f"交互周数: {result['interaction_weeks']}")
+        print(f"交互月数: {result['interaction_months']}")
+        print(f"总交易金额: {result['total_amount_ether']} ETH")
+        print(f"不同合约数: {result['unique_contracts']}")
+        
+    except Exception as e:
+        print(f"错误: {str(e)}")
 
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: background-color 0.2s;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-
-        button:hover {
-            background-color: var(--secondary-color);
-        }
-
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
-        }
-
-        .info-label {
-            font-weight: 600;
-            color: #666;
-        }
-
-        .info-value {
-            font-weight: 500;
-            color: var(--text-color);
-            word-break: break-all;
-        }
-
-        .result-message {
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-            font-weight: 500;
-        }
-
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .btn-loading {
-            position: relative;
-            pointer-events: none;
-        }
-
-        .btn-loading .loading {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .network-badge {
-            display: inline-block;
-            padding: 5px 10px;
-            background-color: #e5e7eb;
-            border-radius: 10px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-top: 5px;
-        }
-
-        .testnet {
-            background-color: #fdf0d9;
-            color: #8a5d17;
-        }
-
-        .address-display {
-            background-color: #f0f0f0;
-            padding: 8px 12px;
-            border-radius: 5px;
-            font-family: monospace;
-            margin-top: 5px;
-            word-break: break-all;
-        }
-
-        .wallet-section {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 40px;
-            color: #666;
-            font-size: 0.9rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>MON Token Claim Portal</h1>
-            <p class="subtitle">Claim your MON tokens on Monad Network</p>
-            <div class="network-badge testnet">Monad Testnet</div>
-        </header>
-
-        <div class="card">
-            <h2>Connect Wallet</h2>
-            <p>Connect your wallet to claim MON tokens.</p>
-            <div class="wallet-section">
-                <button id="connectMetamask">Connect MetaMask</button>
-                <button id="connectOKX">Connect OKX Wallet</button>
-            </div>
-            <div id="walletInfo" style="margin-top: 15px; display: none;">
-                <div class="info-row">
-                    <span class="info-label">Connected Account:</span>
-                    <span class="info-value" id="connectedAccount"></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Network:</span>
-                    <span class="info-value" id="connectedNetwork"></span>
-                </div>
-            </div>
-            <div id="walletMessage" class="result-message" style="display: none;"></div>
-        </div>
-
-        <div class="card">
-            <h2>Token Claim Status</h2>
-            <div id="loadingStatus" style="display: none;">
-                <p>Loading contract information...</p>
-            </div>
-            <div id="claimInfo" style="display: none;">
-                <div class="info-row">
-                    <span class="info-label">Claim Amount:</span>
-                    <span class="info-value" id="claimAmount">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Claim Interval:</span>
-                    <span class="info-value" id="claimInterval">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Whitelist Status:</span>
-                    <span class="info-value" id="whitelistStatus">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Last Claim Time:</span>
-                    <span class="info-value" id="lastClaimTime">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Can Claim Now:</span>
-                    <span class="info-value" id="canClaimStatus">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Contract Balance:</span>
-                    <span class="info-value" id="contractBalance">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Total Claimed:</span>
-                    <span class="info-value" id="totalClaimed">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Token Name:</span>
-                    <span class="info-value" id="tokenName">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Token Symbol:</span>
-                    <span class="info-value" id="tokenSymbol">-</span>
-                </div>
-            </div>
-            <button id="refreshStatus" style="display: none;">Refresh Status</button>
-        </div>
-
-        <div class="card">
-            <h2>Claim Tokens</h2>
-            <p>Click the button below to claim your MON tokens if you are eligible.</p>
-            <button id="claimTokens" disabled>Claim Tokens</button>
-            <div id="claimMessage" class="result-message" style="display: none;"></div>
-        </div>
-
-        <footer>
-            <p>© 2025 MON Token Claim Portal | Monad Network</p>
-        </footer>
-    </div>
-
-    <script>
-        // Contract address and ABI
-        const contractAddress = '0x060152dBBEAA5e94D911b5Cc37347e2951f0A06D';
-        const contractABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newAmount","type":"uint256"}],"name":"ClaimAmountUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newInterval","type":"uint256"}],"name":"ClaimIntervalUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TokensClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"bool","name":"status","type":"bool"}],"name":"WhitelistUpdated","type":"event"},{"inputs":[{"internalType":"address[]","name":"_users","type":"address[]"}],"name":"addBatchToWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"addToWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"canClaim","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimInterval","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"isWhitelisted","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"removeFromWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newAmount","type":"uint256"}],"name":"setClaimAmount","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newInterval","type":"uint256"}],"name":"setClaimInterval","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}];
-
-        // Global variables
-        let web3;
-        let contract;
-        let walletType = null;
-        let currentAccount = null;
-        let provider = null;
-
-        // Monad Network Configuration
-        const MONAD_NETWORK_CONFIG = {
-            chainId: '0x2797',  // 10143 in hex
-            chainName: 'Monad Testnet',
-            nativeCurrency: {
-                name: 'MON',
-                symbol: 'MON',
-                decimals: 18
-            },
-            rpcUrls: ['https://testnet-rpc.monad.xyz/'],
-            blockExplorerUrls: ['https://testnet-explorer.monad.xyz/']
-        };
-
-        // Function to connect to MetaMask
-        async function connectMetaMask() {
-            if (window.ethereum && window.ethereum.isMetaMask) {
-                try {
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    web3 = new Web3(window.ethereum);
-                    provider = window.ethereum;
-                    walletType = 'MetaMask';
-                    setupContract();
-                } catch (error) {
-                    showError('Failed to connect MetaMask');
-                }
-            } else {
-                showError('MetaMask is not installed');
-            }
-        }
-
-        // Function to connect to OKX Wallet
-        async function connectOKX() {
-            if (window.okxwallet) {
-                try {
-                    await window.okxwallet.enable();
-                    web3 = new Web3(window.okxwallet);
-                    provider = window.okxwallet;
-                    walletType = 'OKX Wallet';
-                    setupContract();
-                } catch (error) {
-                    showError('Failed to connect OKX Wallet');
-                }
-            } else {
-                showError('OKX Wallet is not installed');
-            }
-        }
-
-        // Function to setup the contract and get wallet info
-        async function setupContract() {
-            const accounts = await web3.eth.getAccounts();
-            currentAccount = accounts[0];
-            contract = new web3.eth.Contract(contractABI, contractAddress);
-            displayWalletInfo();
-            getClaimStatus();
-        }
-
-        // Function to display wallet info
-        function displayWalletInfo() {
-            document.getElementById('connectedAccount').innerText = currentAccount;
-            document.getElementById('connectedNetwork').innerText = MONAD_NETWORK_CONFIG.chainName;
-            document.getElementById('walletInfo').style.display = 'block';
-        }
-
-        // Function to show error messages
-        function showError(message) {
-            const walletMessage = document.getElementById('walletMessage');
-            walletMessage.innerText = message;
-            walletMessage.className = 'result-message error';
-            walletMessage.style.display = 'block';
-        }
-
-        // Function to get claim status
-        async function getClaimStatus() {
-            try {
-                document.getElementById('loadingStatus').style.display = 'block';
-                const claimAmount = await contract.methods.claimAmount().call();
-                const claimInterval = await contract.methods.claimInterval().call();
-                const isWhitelisted = await contract.methods.isWhitelisted(currentAccount).call();
-                const lastClaimTime = await contract.methods.lastClaimTime(currentAccount).call();
-                const canClaim = await contract.methods.canClaim(currentAccount).call();
-                const contractBalance = await contract.methods.getBalance().call();
-                const totalClaimed = await contract.methods.totalClaimed().call();
-                const tokenName = await contract.methods.name().call();
-                const tokenSymbol = await contract.methods.symbol().call();
-
-                document.getElementById('claimAmount').innerText = web3.utils.fromWei(claimAmount, 'ether') + ' ' + tokenSymbol;
-                document.getElementById('claimInterval').innerText = claimInterval + ' seconds';
-                document.getElementById('whitelistStatus').innerText = isWhitelisted ? 'Yes' : 'No';
-                document.getElementById('lastClaimTime').innerText = new Date(lastClaimTime * 1000).toLocaleString();
-                document.getElementById('canClaimStatus').innerText = canClaim ? 'Yes' : 'No';
-                document.getElementById('contractBalance').innerText = web3.utils.fromWei(contractBalance, 'ether') + ' ' + tokenSymbol;
-                document.getElementById('totalClaimed').innerText = web3.utils.fromWei(totalClaimed, 'ether') + ' ' +
+if __name__ == "__main__":
+    asyncio.run(main())
